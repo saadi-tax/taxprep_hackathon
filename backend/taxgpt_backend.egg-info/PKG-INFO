@@ -1,0 +1,76 @@
+Metadata-Version: 2.4
+Name: taxgpt-backend
+Version: 0.1.0
+Summary: FastAPI service powering the TaxGPT hackathon agent.
+Author-email: TaxGPT Team <engineering@taxgpt.dev>
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi<1.0.0,>=0.115.5
+Requires-Dist: uvicorn[standard]<1.0.0,>=0.30.6
+Requires-Dist: sqlmodel>=0.0.21
+Requires-Dist: psycopg[binary]>=3.2.1
+Requires-Dist: pydantic-settings>=2.6.0
+Requires-Dist: python-multipart>=0.0.9
+Requires-Dist: structlog>=24.4.0
+Requires-Dist: httpx>=0.27.2
+Requires-Dist: rich>=13.9.2
+Provides-Extra: dev
+Requires-Dist: pytest>=8.3.3; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.24.0; extra == "dev"
+Requires-Dist: pytest-cov>=5.0.0; extra == "dev"
+Requires-Dist: ruff>=0.6.8; extra == "dev"
+Requires-Dist: black>=24.10.0; extra == "dev"
+Requires-Dist: isort>=5.13.2; extra == "dev"
+Requires-Dist: mypy>=1.11.2; extra == "dev"
+Requires-Dist: types-requests>=2.32.0.20241016; extra == "dev"
+
+# TaxGPT Backend
+
+FastAPI service that ingests tax documents, orchestrates extraction pipelines, and exposes APIs for the web workspace.
+
+## Prerequisites
+- Python 3.11 (manage via `pyenv`; activate with `pyenv activate taxgpt-backend`)
+- [uv](https://github.com/astral-sh/uv) or Poetry (uv preferred)
+- PostgreSQL 15 (local or Docker)
+
+## Setup
+```bash
+cd /Volumes/ExtStorage/TaxGPT\ fun/taxprep_hackathon/backend
+pyenv activate taxgpt-backend
+uv sync
+cp env.example .env
+```
+
+## Key commands
+| Command | Description |
+| --- | --- |
+| `uv run uvicorn app.main:app --reload` | Start local API server |
+| `uv run pytest` | Run backend test suite |
+| `uv run ruff check app tests` | Lint |
+| `uv run black --check app tests` | Format check |
+| `uv run mypy app` | Static type checking |
+
+These commands are also exposed via the repo-level `Makefile`.
+
+## Environment
+`.env` is managed via `pydantic-settings`. For hackathon scenarios you likely only need:
+```
+TAXGPT_DATABASE_URL=postgresql+psycopg://taxgpt:taxgpt@localhost:5432/taxgpt
+TAXGPT_ENVIRONMENT=local
+TAXGPT_LOG_LEVEL=INFO
+```
+
+## Project anatomy
+- `app/api` – routers, dependencies, DTOs
+- `app/core` – shared config/logging/security
+- `app/services` – document ingestion, ProConnect automation (future)
+- `app/models` – SQLModel definitions
+- `app/schemas` – Pydantic request/response models
+- `tests/` – pytest suites (async aware)
+
+## Next steps
+- Implement document ingestion + storage adapters
+- Wire Reducto/LLM services inside `app/services/documents.py`
+- Introduce Alembic migrations and Postgres container
+- Add authentication middleware once ProConnect integration solidifies
+

@@ -1,0 +1,8 @@
+---
+alwaysApply: true
+---
+- Follow `docs/CODING_STANDARDS.md` for style: 100-char max in Python, fully typed code, React function components + hooks, Tailwind-first styling, TanStack Query for server state, Zustand for local state.
+- Use repo tooling (`make lint test`, `uv run ...`, `pnpm ...`) before finishing any change; never skip lint/tests without explaining why.
+- Keep docs synchronized with behavior changes (update `PLAN.md`, `docs/REPO_STRUCTURE.md`, `docs/AGENT_PLAYBOOK.md` when relevant) and describe updates in final summaries.
+- Maintain determinism: pin versions, avoid randomness without seeds, and ensure logging stays structured with traceability for document lineage/workpapers.
+- When running shell commands involving Python dependencies, activate `pyenv activate taxgpt-backend`; for frontend work, prefer pnpm 9+ with committed lockfiles.
