@@ -26,6 +26,42 @@ cp env.example .env
 
 These commands are also exposed via the repo-level `Makefile`.
 
+## Document ingestion API
+The FastAPI surface in `app/main.py` exposes a minimal ingestion loop backed by SQLite:
+
+| Endpoint | Method | Notes |
+| --- | --- | --- |
+| `/api/documents/ingest` | `POST` | multipart form-data (`file` field) storing the PDF, text, and metadata |
+| `/api/documents` | `GET` | optional `tax_year` / `doc_type` filters, returns `TaxDocumentMetadata[]` |
+| `/api/documents/{id}` | `GET` | metadata lookup |
+| `/api/documents/{id}/text` | `GET` | returns `{ id, full_text }` |
+| `/api/documents/{id}/file` | `GET` | streams the persisted PDF |
+
+All files are saved to `backend/app/uploads/` and metadata lives in `backend/app/taxdocs.db` (auto-created).
+
+### Quick manual test
+```bash
+pyenv activate taxgpt-backend
+uv run uvicorn app.main:app --reload
+# in another shell
+curl -F "file=@tax_documents/sample.pdf" http://localhost:8000/api/documents/ingest
+curl http://localhost:8000/api/documents
+```
+
+## MCP over HTTP
+The service also mounts a FastMCP server at `/mcp` with three tools:
+
+| Tool | Input | Output |
+| --- | --- | --- |
+| `list_tax_documents` | `tax_year?: int`, `doc_type?: str` | `TaxDocumentMetadata[]` |
+| `get_tax_document_metadata_tool` | `doc_id: str` | `TaxDocumentMetadata` |
+| `get_tax_document_text_tool` | `doc_id: str` | `{ id: str, full_text: str }` |
+
+Example invocation with the MCP CLI:
+```bash
+mcp call http://localhost:8000/mcp list_tax_documents
+```
+
 ## Environment
 `.env` is managed via `pydantic-settings`. For hackathon scenarios you likely only need:
 ```

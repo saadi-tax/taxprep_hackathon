@@ -5,6 +5,7 @@ app/main.py
 app/api/__init__.py
 app/api/routes/__init__.py
 app/api/routes/health.py
+app/api/routes/ingest.py
 app/core/__init__.py
 app/core/config.py
 app/core/logging.py

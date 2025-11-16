@@ -32,6 +32,10 @@ class Settings(BaseSettings):
         ],
         description="CORS origin whitelist.",
     )
+    openai_api_key: str = Field(
+        default="",
+        description="OpenAI API key for document extraction.",
+    )
 
     @field_validator("allow_origins", mode="before")
     @classmethod

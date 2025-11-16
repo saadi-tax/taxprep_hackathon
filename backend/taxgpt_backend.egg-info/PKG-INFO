@@ -8,12 +8,18 @@ Description-Content-Type: text/markdown
 Requires-Dist: fastapi<1.0.0,>=0.115.5
 Requires-Dist: uvicorn[standard]<1.0.0,>=0.30.6
 Requires-Dist: sqlmodel>=0.0.21
+Requires-Dist: sqlalchemy>=2.0.36
 Requires-Dist: psycopg[binary]>=3.2.1
 Requires-Dist: pydantic-settings>=2.6.0
 Requires-Dist: python-multipart>=0.0.9
 Requires-Dist: structlog>=24.4.0
 Requires-Dist: httpx>=0.27.2
 Requires-Dist: rich>=13.9.2
+Requires-Dist: pypdf>=4.3.1
+Requires-Dist: mcp[cli]>=0.1.1
+Requires-Dist: openai>=1.54.0
+Requires-Dist: pdf2image>=1.17.0
+Requires-Dist: pillow>=10.4.0
 Provides-Extra: dev
 Requires-Dist: pytest>=8.3.3; extra == "dev"
 Requires-Dist: pytest-asyncio>=0.24.0; extra == "dev"
@@ -51,6 +57,42 @@ cp env.example .env
 | `uv run mypy app` | Static type checking |
 
 These commands are also exposed via the repo-level `Makefile`.
+
+## Document ingestion API
+The FastAPI surface in `app/main.py` exposes a minimal ingestion loop backed by SQLite:
+
+| Endpoint | Method | Notes |
+| --- | --- | --- |
+| `/api/documents/ingest` | `POST` | multipart form-data (`file` field) storing the PDF, text, and metadata |
+| `/api/documents` | `GET` | optional `tax_year` / `doc_type` filters, returns `TaxDocumentMetadata[]` |
+| `/api/documents/{id}` | `GET` | metadata lookup |
+| `/api/documents/{id}/text` | `GET` | returns `{ id, full_text }` |
+| `/api/documents/{id}/file` | `GET` | streams the persisted PDF |
+
+All files are saved to `backend/app/uploads/` and metadata lives in `backend/app/taxdocs.db` (auto-created).
+
+### Quick manual test
+```bash
+pyenv activate taxgpt-backend
+uv run uvicorn app.main:app --reload
+# in another shell
+curl -F "file=@tax_documents/sample.pdf" http://localhost:8000/api/documents/ingest
+curl http://localhost:8000/api/documents
+```
+
+## MCP over HTTP
+The service also mounts a FastMCP server at `/mcp` with three tools:
+
+| Tool | Input | Output |
+| --- | --- | --- |
+| `list_tax_documents` | `tax_year?: int`, `doc_type?: str` | `TaxDocumentMetadata[]` |
+| `get_tax_document_metadata_tool` | `doc_id: str` | `TaxDocumentMetadata` |
+| `get_tax_document_text_tool` | `doc_id: str` | `{ id: str, full_text: str }` |
+
+Example invocation with the MCP CLI:
+```bash
+mcp call http://localhost:8000/mcp list_tax_documents
+```
 
 ## Environment
 `.env` is managed via `pydantic-settings`. For hackathon scenarios you likely only need:

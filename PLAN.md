@@ -181,3 +181,64 @@ Alternatives considered (Next.js, Node backend, Django) were rejected for slower
 3. Populate docs (`REPO_STRUCTURE`, `CODING_STANDARDS`, `AGENT_PLAYBOOK`) and root README.  
 4. Iterate on service-specific features per phases.
 
+## 11. Tax Document Intake + MCP Bridge (Phase 0.5)
+### Objective
+- Ship a single FastAPI surface that the React UI and autonomous agents can hit immediately for PDF ingestion, storage, and metadata retrieval.
+- Provide an HTTP MCP server (`/mcp`) so browser/agent tooling can reuse the same data without bespoke SDKs.
+
+### Components
+- **Storage**: SQLite file `backend/app/taxdocs.db` for zero-config persistence; SQLAlchemy ORM with a single `tax_documents` table.
+- **File system**: `backend/app/uploads/` stores original PDFs, keyed by UUID.
+- **Extraction**: `pypdf` for deterministic text extraction + naive heuristics for type/year/payer/taxpayer.
+- **API layer**: FastAPI router with `/api/documents/*` endpoints plus download route.
+- **Agent interface**: FastMCP `Streamable HTTP` server mounted at `/mcp`.
+
+### Data Model (`tax_documents`)
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `TEXT` (UUID) | Primary key |
+| `original_filename` | `TEXT` | Provided by uploader |
+| `storage_path` | `TEXT` | Absolute path to stored PDF |
+| `doc_type` | `TEXT` | Derived via regex heuristics (w2, 1099_int, etc.) |
+| `tax_year` | `INTEGER NULL` | Most common 20xx token |
+| `payer_name` | `TEXT NULL` | First line containing “payer/employer name” |
+| `taxpayer_name` | `TEXT NULL` | First line containing “employee/recipient name” |
+| `num_pages` | `INTEGER` | From `pypdf` |
+| `ingested_at` | `DATETIME` | Default `datetime.utcnow` |
+| `full_text` | `TEXT` | Concatenated PDF text |
+
+### REST API (temporary `/api` surface)
+- `POST /api/documents/ingest` – multipart upload (`file`), extracts + stores metadata/text.
+- `GET /api/documents` – optional `tax_year` / `doc_type` filters, returns `TaxDocumentMetadata[]`.
+- `GET /api/documents/{id}` – metadata lookup.
+- `GET /api/documents/{id}/text` – raw extracted text payload.
+- `GET /api/documents/{id}/file` – streams stored PDF for side-by-side review.
+
+### MCP Tools @ `/mcp`
+1. `list_tax_documents` – mirrors REST list filters.
+2. `get_tax_document_metadata_tool` – metadata fetch for a specific UUID.
+3. `get_tax_document_text_tool` – returns `{ id, full_text }` for automation workflows.
+
+### Implementation Notes
+- `FastMCP` is mounted via `app.mount("/mcp", ...)`, so REST + MCP share the same SQLite session factory.
+- `UPLOAD_DIR` and DB path derive from `app/main.py` location to avoid CWD issues; both are ignored via `.gitignore`.
+- Heuristics rely on deterministic substring checks; upgrade path is to replace with structured parsers or LLM templates.
+- Future migration to Postgres should re-use schema definitions; the ORM stays isolated inside `main.py` for now.
+
+### Frontend Integration (Phase 0.5 - Complete)
+- **API Client** (`src/lib/api/documents.ts`): Type-safe functions for all document endpoints.
+- **React Query Hooks** (`src/lib/hooks/useDocuments.ts`): `useDocuments`, `useDocumentMetadata`, `useDocumentText`, `useUploadDocument` with automatic cache invalidation.
+- **Components**:
+  - `DocumentUpload`: Drag-and-drop PDF upload with loading states.
+  - `DocumentList`: Table view with filters (tax year, doc type), real-time updates.
+  - `DocumentDetail`: Full metadata + extracted text viewer with PDF download link.
+- **Dashboard Page**: Updated to show real document list instead of mock data.
+- **Type Safety**: Full TypeScript types matching backend Pydantic models.
+
+### Testing Plan & Status
+- [x] Backend: `uv run uvicorn app.main:app --reload` then `curl -F "file=@sample.pdf" http://localhost:8000/api/documents/ingest`.
+- [x] Frontend: `pnpm dev` → navigate to `/` → upload PDF → verify list updates.
+- [ ] Manual: Hit `/api/documents` + `/api/documents/{id}/text` to verify metadata/text persistence.
+- [ ] Manual: Call MCP tools via `mcp` CLI (`mcp call http://localhost:8000/mcp list_tax_documents`) once CLI configured.
+- No automated tests yet; will add pytest coverage after we stabilize schema + storage abstraction.
+
